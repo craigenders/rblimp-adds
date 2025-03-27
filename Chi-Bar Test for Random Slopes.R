@@ -87,12 +87,15 @@ chibar_test_slopes <- function(model, varnames = NULL) {
   
   # combine the lines into a single multi-line string
   result <- paste(line1, line2, line3, line4, sep = "\n")
-
+  
+  # print the formatted table to the console
+  cat(result, "\n")
+  
   # return table
   if(total_raneff > 6) {
     return("This function currently supports models with only two random slopes.")
   } else {
-    return(result)
+    return(invisible(result))
   }
   
 }
