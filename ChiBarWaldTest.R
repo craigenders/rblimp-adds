@@ -8,10 +8,16 @@ chibar_test_slopes <- function(model, testvars = NULL) {
   raneff_matches <- grep(raneff_pattern, col_names, perl = TRUE, value = TRUE)
   total_raneff <- length(raneff_matches)
   
-  # count total number of randonm slopes
+  # count total number of random slopes
   slp_pattern <- "(?i)level-2 slope variance"
   slp_matches <- grep(slp_pattern, col_names, perl = TRUE, value = TRUE)
   total_slp <- length(slp_matches)
+  
+  # check whether input list has a random slope
+  missing_vars <- testvars[!sapply(testvars, function(v) {
+    any(grepl(v, col_names, ignore.case = TRUE) & 
+          grepl("level-2 slope variance", col_names, ignore.case = TRUE))
+  })]
   
   # identify column names to test
   if (!is.null(testvars)) {
@@ -89,11 +95,15 @@ chibar_test_slopes <- function(model, testvars = NULL) {
   result <- paste(line1, line2, line3, line4, sep = "\n")
   
   # print the formatted table to the console
-  cat(result, "\n")
+  if(length(missing_vars) == 0){
+    cat(result, "\n")
+  }
   
   # return table
   if(total_raneff > 6) {
     return("This function currently supports models with only two random slopes.")
+  } else if(length(missing_vars) >= 1) {
+    return("Error: One or more variables on the test list do not have a random slope in the fitted model.")
   } else {
     return(invisible(result))
   }
