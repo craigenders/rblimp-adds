@@ -10,7 +10,7 @@ chibar_test_slopes <- function(model, varnames = NULL) {
   
   # count total number of randonm slopes
   slp_pattern <- "(?i)level-2 slope variance"
-  slp_matches <- grep(slp_pattern, cn, perl = TRUE, value = TRUE)
+  slp_matches <- grep(slp_pattern, col_names, perl = TRUE, value = TRUE)
   total_slp <- length(slp_matches)
   
   # identify column names to test
@@ -19,7 +19,7 @@ chibar_test_slopes <- function(model, varnames = NULL) {
     target_terms_pattern <- paste(target_terms, collapse = "|")
     varnames_pattern <- paste(varnames, collapse = "|")
     combined_pattern <- paste0("(?i)(", varnames_pattern, ").*(", target_terms_pattern, ")|(",target_terms_pattern, ").*(", varnames_pattern, ")")
-    combined_matches <- grep(combined_pattern, cn, perl = TRUE, value = TRUE)
+    combined_matches <- grep(combined_pattern, col_names, perl = TRUE, value = TRUE)
   } else {
     combined_matches <- NULL
   }
