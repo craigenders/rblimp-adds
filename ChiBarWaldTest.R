@@ -1,4 +1,4 @@
-chibar_test_slopes <- function(model, varnames = NULL) {
+chibar_test_slopes <- function(model, testvars = NULL) {
   
   # get all column names from the model's iterations slot.
   col_names <- names(model@iterations)
@@ -14,11 +14,11 @@ chibar_test_slopes <- function(model, varnames = NULL) {
   total_slp <- length(slp_matches)
   
   # identify column names to test
-  if (!is.null(varnames)) {
+  if (!is.null(testvars)) {
     target_terms <- c("level-2 slope variance", "level-2 covariance between", "level-2 intercept covariance with")
     target_terms_pattern <- paste(target_terms, collapse = "|")
-    varnames_pattern <- paste(varnames, collapse = "|")
-    combined_pattern <- paste0("(?i)(", varnames_pattern, ").*(", target_terms_pattern, ")|(",target_terms_pattern, ").*(", varnames_pattern, ")")
+    testvars_pattern <- paste(testvars, collapse = "|")
+    combined_pattern <- paste0("(?i)(", testvars_pattern, ").*(", target_terms_pattern, ")|(",target_terms_pattern, ").*(", testvars_pattern, ")")
     combined_matches <- grep(combined_pattern, col_names, perl = TRUE, value = TRUE)
   } else {
     combined_matches <- NULL
@@ -49,7 +49,7 @@ chibar_test_slopes <- function(model, varnames = NULL) {
   # pvalues for models with two random slopes
   if(total_raneff == 6){
     # test one of the slopes
-    if(total_slp - length(varnames) == 1){
+    if(total_slp - length(testvars) == 1){
       if (wald == 0) {
         pvalue_chibar <- 1
       } else {
@@ -59,7 +59,7 @@ chibar_test_slopes <- function(model, varnames = NULL) {
       }
     } 
     # test both slopes
-    if(total_slp - length(varnames) == 0){
+    if(total_slp - length(testvars) == 0){
 
       if (wald == 0) {
         pvalue_chibar <- 1
