@@ -97,7 +97,7 @@ plot_posteriors <- function(model, var) {
   return(p)
 }
 
-chibar_test <- function(model, raneff = NULL) {
+chibar_test <- function(model, raneff = NULL, print = TRUE) {
   
   # error handling: if raneff is "Intercept", exit with an appropriate message
   if (!is.null(raneff) && any(tolower(raneff) == "intercept")) {
@@ -149,58 +149,56 @@ chibar_test <- function(model, raneff = NULL) {
   
   # pvalue for a model with a single random slope
   if(total_raneff == 3){
-    if (wald == 0) {
-      pvalue_chibar <- 1
-    } else {
-      pvalue_chibar <- 0.50 * pchisq(wald, df = 1, lower.tail = FALSE) +
-        0.25 * pchisq(wald, df = 2, lower.tail = FALSE)
-    }
+    pvalue_binom <- if (wald == 0) {0.25 * 1 + 0.50 * 1 + 0.25 * 1 # If LRT == 0, the 0-df component gives probability 1.
+    } else {0.25 * 0 + 0.50 * (1 - pchisq(wald, df = 1)) + 0.25 * (1 - pchisq(wald, df = 2))}
+    pvalue_mixture <- 0.5 * (1 - pchisq(wald, df = 1)) + 0.5 * (1 - pchisq(wald, df = 2))
   }
   
   # pvalues for models with two random slopes
   if(total_raneff == 6){
-    # test one of the slopes
+    # test one slope
     if(total_slp - length(raneff) == 1){
-      if (wald == 0) {
-        pvalue_chibar <- 1
+      if (wald == 0) {pvalue_binom <- 1
       } else {
-        pvalue_chibar <- (3/8) * pchisq(wald, df = 1, lower.tail = FALSE) +
-          (3/8) * pchisq(wald, df = 2, lower.tail = FALSE) +
-          (1/8) * pchisq(wald, df = 3, lower.tail = FALSE)
+        pvalue_binom <- (3/8) * pchisq(wald, df = 1, lower.tail = FALSE) + (3/8) * pchisq(wald, df = 2, lower.tail = FALSE) + (1/8) * pchisq(wald, df = 3, lower.tail = FALSE)
       }
+      pvalue_mixture <- 0.5 * (1 - pchisq(wald, df = 2)) + 0.5 * (1 - pchisq(wald, df = 3))
     } 
     # test both slopes
     if(total_slp - length(raneff) == 0){
       if (wald == 0) {
-        pvalue_chibar <- 1
+        pvalue_binom <- 1
       } else {
-        pvalue_chibar <- (5/32) * pchisq(wald, df = 1, lower.tail = FALSE) +
+        pvalue_binom <- (5/32) * pchisq(wald, df = 1, lower.tail = FALSE) +
           (10/32) * pchisq(wald, df = 2, lower.tail = FALSE) +
           (10/32) * pchisq(wald, df = 3, lower.tail = FALSE) +
           (5/32) * pchisq(wald, df = 4, lower.tail = FALSE) +
           (1/32) * pchisq(wald, df = 5, lower.tail = FALSE)
       }
+      pvalue_mixture <- NA
     } 
   }
   
   # round printed values
   wald_r <- round(wald, 3)
-  pvalue_chibar_r <- round(pvalue_chibar, 3)
+  pvalue_mixture_r <- round(pvalue_mixture, 3)
+  pvalue_binom_r <- round(pvalue_binom, 3)
   pvalue_central_r <- round(pvalue_central, 3)
   
   # create formatted lines: left-align the description in a 40-character field,
   # then right-align the numeric value in a 10-character field.
   line1 <- sprintf("%-40s %10.3f", "Wald Statistic", wald_r)
   line2 <- sprintf("%-40s %10d", "Number of Parameters Tested (df)", df)
-  line3 <- sprintf("%-40s %10.3f", "Probability (Chi-Bar Approximate)", pvalue_chibar_r)
-  line4 <- sprintf("%-40s %10.3f", "Probability (Central)", pvalue_central_r)
+  line3 <- sprintf("%-40s %10.3f", "Probability (Chi-Bar Mixture Method)", pvalue_mixture_r)
+  line4 <- sprintf("%-40s %10.3f", "Probability (Chi-Bar Binomial Method)", pvalue_binom_r)
+  line5 <- sprintf("%-40s %10.3f", "Probability (Central Chi-Square)", pvalue_central_r)
   
   # combine the lines into a single multi-line string
-  result <- paste(line1, line2, line3, line4, sep = "\n")
+  results2print <- paste(line1, line2, line3, line4, line5, sep = "\n")
   
   # print the formatted table to the console
-  if(length(missing_vars) == 0){
-    cat(result, "\n")
+  if(length(missing_vars) == 0 & print == TRUE){
+    cat(results2print, "\n")
   }
   
   # return table or error message
@@ -209,7 +207,7 @@ chibar_test <- function(model, raneff = NULL) {
   } else if(length(missing_vars) >= 1) {
     return("Error: One or more variables on the test list do not have a random slope in the fitted model.")
   } else {
-    return(invisible(result))
+    return(invisible(list(wald = wald,pmixture = pvalue_mixture,pbinom = pvalue_binom,pcentral = pvalue_central)))
   }
   
 }
