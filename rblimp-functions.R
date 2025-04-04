@@ -219,14 +219,18 @@ plot_interaction <- function(model, outcome, focal, moderator) {
   # outcome = 'read9'
   # focal = 'reading1'
   # moderator = 'lrnprob1'
+
+  # Load ggplot2, stopping with an error if it's not installed.
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required but is not installed. Please install it with install.packages('ggplot2').")
+  }
+  library(ggplot2)
   
+  # Identify estimates to select
   iter_names <- names(model@iterations)
-  
-  # # Identify estimates to select
   selected_info <- data.frame(col_name = character(0),
                               type = character(0),
                               stringsAsFactors = FALSE)
-  
   # Loop over each column name.
   for (col in iter_names) {
     # Only consider columns that start with the outcome string.
