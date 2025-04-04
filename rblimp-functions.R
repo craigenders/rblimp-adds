@@ -215,9 +215,9 @@ chibar_test <- function(model, raneff = NULL, print = TRUE) {
 plot_interaction <- function(model, outcome, focal, moderator) {
   
   # test values
-  # model = model4
+  # model = model
   # outcome = 'read9'
-  # focal = 'read1'
+  # focal = 'reading1'
   # moderator = 'lrnprob1'
   
   iter_names <- names(model@iterations)
@@ -285,26 +285,47 @@ plot_interaction <- function(model, outcome, focal, moderator) {
     selected_data <- data.frame()  # Empty data frame if no columns match.
   }
   
-  # Extract Parameter draws for regression coefficients
+  # Extract parameter draws for regression coefficients
   mat_p <- as.matrix(selected_data)
   
   # Check whether either variable is centered
-  syntax_text <- model@syntax
-  centered_text <- sub(".*CENTER:", "", syntax_text)
+  syntax_text <- as.character(model@syntax)
+  syntax_lines <- unlist(strsplit(syntax_text, "\n"))
+  center_line <- grep("(?i)^CENTER:", syntax_lines, perl = TRUE, value = TRUE)
+  if (length(center_line) > 0) {
+    centered_text <- sub("(?i)^CENTER:\\s*([^;]+);.*", "\\1", center_line[1], perl = TRUE)
+  } else {
+    centered_text <- ""
+  }
   moderator_center_flag <- grepl(moderator, centered_text, fixed = TRUE)
-  focal_center_flag <- grepl(focal, centered_text, fixed = TRUE)
+  focal_center_flag     <- grepl(focal, centered_text, fixed = TRUE)
   
-  # Compute mean and standard deviations
-  mean_outcome <- mean(model@average_imp[[outcome]], na.rm = TRUE)
+  # Check whether either variable is latent
+  latent_line <- grep("(?i)^LATENT:", syntax_lines, perl = TRUE, value = TRUE)
+  if (length(latent_line) > 0) {
+    latent_text <- sub("(?i)^CENTER:\\s*([^;]+);.*", "\\1", latent_line[1], perl = TRUE)
+  } else {
+    latent_text <- ""
+  }
+  moderator_latent_flag <- grepl(moderator, latent_text, fixed = TRUE)
+  focal_latent_flag     <- grepl(focal, latent_text, fixed = TRUE)
+  
+  # Alter names of any latent variables
+  if (moderator_latent_flag) {
+    moderator <- paste0(moderator, ".latent")
+  }
+  
+  if (focal_latent_flag) {
+    focal <- paste0(focal, ".latent")
+  }
+  
+  # Compute means and standard deviations
   mean_focal <- mean(model@average_imp[[focal]], na.rm = TRUE)
   mean_moderator <- mean(model@average_imp[[moderator]], na.rm = TRUE)
-  sd_outcome <- sd(model@average_imp[[outcome]], na.rm = TRUE)
   sd_focal <- sd(model@average_imp[[focal]], na.rm = TRUE)
   sd_moderator <- sd(model@average_imp[[moderator]], na.rm = TRUE)
   
-  # Define variable rantes
-  y_low <- mean_moderator - sd_moderator
-  m_high <- mean_moderator + sd_moderator
+  # Define variable ranges
   if(moderator_center_flag){
     m_low <- -sd_moderator
     m_mean <- 0
@@ -323,7 +344,7 @@ plot_interaction <- function(model, outcome, focal, moderator) {
     x_mean <- mean_focal
     x_high <- mean_focal + sd_focal*1.5
   }
-
+  
   # Function to Compute conditional Effects
   cond_eff <- function(x, m) {
     cbind(b0 = x[,1] + x[,3] * m, b1 = x[,2] + x[,4] * m, m = m )
@@ -335,7 +356,7 @@ plot_interaction <- function(model, outcome, focal, moderator) {
     cond_eff(mat_p, m = m_mean),
     cond_eff(mat_p, m =  m_high)
   ))
-
+  
   # Create factor based on levels of m
   simple_data$mf <- as.factor(simple_data$m)
   
@@ -377,16 +398,11 @@ plot_interaction <- function(model, outcome, focal, moderator) {
     cond_plot 
     + scale_x_continuous(
       paste(focal, "Scores"),
-      # breaks = seq(-3, 3, by = 1),
       limits = c(x_low, x_high)
     )
     + scale_y_continuous(
       paste(outcome, " Scores")
-      # breaks = seq(-1.5, 3, by = .5),
-      # limits = c(y_low, 2.6)
     )
-    # + scale_color_brewer(palette = 'Set2')
-    # + scale_fill_brewer(palette = 'Set2')
     + scale_color_manual(values = c("#439A9D","#583BBF","#D95C14"))
     + scale_fill_manual(values = c("#439A9D","#583BBF","#D95C14"))
     + ggtitle(
@@ -394,5 +410,5 @@ plot_interaction <- function(model, outcome, focal, moderator) {
       paste(moderator, "as Moderator")
     )
   )
-
+  
 }
