@@ -385,8 +385,10 @@ plot_interaction <- function(model, outcome, focal, moderator) {
       # breaks = seq(-1.5, 3, by = .5),
       # limits = c(y_low, 2.6)
     )
-    + scale_color_brewer(palette = 'Set2')
-    + scale_fill_brewer(palette = 'Set2')
+    # + scale_color_brewer(palette = 'Set2')
+    # + scale_fill_brewer(palette = 'Set2')
+    + scale_color_manual(values = c("#439A9D","#583BBF","#D95C14")) +
+    + scale_fill_manual(values = c("#439A9D","#583BBF","#D95C14")) +
     + ggtitle(
       'Plot of Conditional Regressions',
       paste(moderator, "as Moderator")
