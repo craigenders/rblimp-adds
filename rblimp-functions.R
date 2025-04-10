@@ -211,6 +211,11 @@ plot_interaction <- function(model, outcome, focal, moderator) {
   }
   library(ggplot2)
   
+  model = model4
+  outcome = 'read9'
+  focal = 'read1'
+  moderator = 'lrnprob1'
+  
   # Identify estimates to select
   iter_names <- names(model@iterations)
   selected_info <- data.frame(col_name = character(0),
@@ -277,6 +282,10 @@ plot_interaction <- function(model, outcome, focal, moderator) {
   # Extract parameter draws for regression coefficients
   mat_p <- as.matrix(selected_data)
   
+  # Define syntax as an object
+  syntax_text <- as.character(model@syntax)
+  syntax_lines <- unlist(strsplit(syntax_text, "\n"))
+  
   # Check whether variables are nominal
   nominal_line <- grep("(?i)^NOMINAL:", syntax_lines, perl = TRUE, value = TRUE)
   if (length(nominal_line) > 0) {
@@ -293,8 +302,6 @@ plot_interaction <- function(model, outcome, focal, moderator) {
   }
   
   # Check whether either variable is centered
-  syntax_text <- as.character(model@syntax)
-  syntax_lines <- unlist(strsplit(syntax_text, "\n"))
   center_line <- grep("(?i)^CENTER:", syntax_lines, perl = TRUE, value = TRUE)
   if (length(center_line) > 0) {
     centered_text <- sub("(?i)^CENTER:\\s*([^;]+);.*", "\\1", center_line[1], perl = TRUE)
