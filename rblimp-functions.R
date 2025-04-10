@@ -205,12 +205,6 @@ chibar_test <- function(model, raneff = NULL, print = TRUE) {
 
 plot_interaction <- function(model, outcome, focal, moderator) {
   
-  # test values
-  # model = model
-  # outcome = 'read9'
-  # focal = 'reading1'
-  # moderator = 'lrnprob1'
-
   # Load ggplot2, stopping with an error if it's not installed.
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("Package 'ggplot2' is required but is not installed. Please install it with install.packages('ggplot2').")
@@ -283,6 +277,21 @@ plot_interaction <- function(model, outcome, focal, moderator) {
   # Extract parameter draws for regression coefficients
   mat_p <- as.matrix(selected_data)
   
+  # Check whether variables are nominal
+  nominal_line <- grep("(?i)^NOMINAL:", syntax_lines, perl = TRUE, value = TRUE)
+  if (length(nominal_line) > 0) {
+    nominal_text <- sub("(?i)^NOMINAL:\\s*([^;]+);.*", "\\1", nominal_line[1], perl = TRUE)
+  } else {
+    nominal_text <- ""
+  }
+  # Create T/F flags for focal and moderator appearing in NOMINAL
+  focal_categorical_flag <- grepl(focal, nominal_text, ignore.case = TRUE)
+  moderator_categorical_flag <- grepl(moderator, nominal_text, ignore.case = TRUE)
+  
+  if (focal_categorical_flag) {
+    stop("This function currently allows categorical moderators but requires numeric focal predictors.")
+  }
+  
   # Check whether either variable is centered
   syntax_text <- as.character(model@syntax)
   syntax_lines <- unlist(strsplit(syntax_text, "\n"))
@@ -314,22 +323,19 @@ plot_interaction <- function(model, outcome, focal, moderator) {
     focal <- paste0(focal, ".latent")
   }
   
+  if (moderator_categorical_flag) {
+    model@average_imp[[moderator]] <- round(model@average_imp[[moderator]])
+    num_moderator_cats <- length(unique(model@average_imp[[moderator]]))
+    unique_moderator_vals <- sort(unique(model@average_imp[[moderator]]))
+  }
+  
   # Compute means and standard deviations
   mean_focal <- mean(model@average_imp[[focal]], na.rm = TRUE)
-  mean_moderator <- mean(model@average_imp[[moderator]], na.rm = TRUE)
   sd_focal <- sd(model@average_imp[[focal]], na.rm = TRUE)
+  mean_moderator <- mean(model@average_imp[[moderator]], na.rm = TRUE)
   sd_moderator <- sd(model@average_imp[[moderator]], na.rm = TRUE)
   
   # Define variable ranges
-  if(moderator_center_flag){
-    m_low <- -sd_moderator
-    m_mean <- 0
-    m_high <- +sd_moderator
-  } else{
-    m_low <- mean_moderator - sd_moderator
-    m_mean <- mean_moderator
-    m_high <- mean_moderator + sd_moderator
-  }
   if(focal_center_flag){
     x_low <- -sd_focal*1.5
     x_mean <- 0
@@ -339,18 +345,50 @@ plot_interaction <- function(model, outcome, focal, moderator) {
     x_mean <- mean_focal
     x_high <- mean_focal + sd_focal*1.5
   }
+  if (moderator_categorical_flag == F) {
+    if(moderator_center_flag){
+      m_low <- -sd_moderator
+      m_mean <- 0
+      m_high <- +sd_moderator
+    } else{
+      m_low <- mean_moderator - sd_moderator
+      m_mean <- mean_moderator
+      m_high <- mean_moderator + sd_moderator
+    }
+  }
+  if (moderator_categorical_flag == T) {
+    m_cat <- matrix(0, nrow = num_moderator_cats, ncol = num_moderator_cats - 1)
+    for(g in 2:num_moderator_cats){
+      m_cat[g,g-1] <- 1
+    }
+  }
   
   # Function to Compute conditional Effects
   cond_eff <- function(x, m) {
     cbind(b0 = x[,1] + x[,3] * m, b1 = x[,2] + x[,4] * m, m = m )
   }
+  cond_eff_cat <- function(x, i) {
+    m <- m_cat[i, ]
+    cbind(b0 = x[,1] + rowSums(x[,3:(3 + num_moderator_cats - 2)] * matrix(m, nrow = nrow(x), ncol = length(m), byrow = T)), 
+          b1 = x[,2] + rowSums(x[,(3 + num_moderator_cats - 1):ncol(x)] * matrix(m, nrow = nrow(x), ncol = length(m), byrow = T)), m = i )
+  }
+  
   
   # Compute all conditional effects into data.frame
-  simple_data <- as.data.frame(rbind(
-    cond_eff(mat_p, m = m_low),
-    cond_eff(mat_p, m = m_mean),
-    cond_eff(mat_p, m =  m_high)
-  ))
+  if (moderator_categorical_flag == F) {
+    simple_data <- as.data.frame(rbind(
+      cond_eff(mat_p, m = m_low),
+      cond_eff(mat_p, m = m_mean),
+      cond_eff(mat_p, m =  m_high)
+    ))
+  }
+  if (moderator_categorical_flag == T) {
+    simple_data <- as.data.frame(
+      do.call(rbind, lapply(seq_len(nrow(m_cat)), function(i) {
+        cond_eff_cat(mat_p, i = i)
+      }))
+    )
+  }
   
   # Create factor based on levels of m
   simple_data$mf <- as.factor(simple_data$m)
@@ -371,21 +409,26 @@ plot_interaction <- function(model, outcome, focal, moderator) {
   }))
   
   # Create factor with labels
-  rib_data$mf <- factor(
-    rib_data$m,
-    levels = c(m_high, m_mean, m_low),
-    labels = c(
-      '+1 SD',
-      'Mean',
-      '-1 SD'
+  if (moderator_categorical_flag == F) {
+    rib_data$mf <- factor(
+      rib_data$m,
+      levels = c(m_high, m_mean, m_low),
+      labels = c('+1 SD','Mean','-1 SD')
     )
-  )
+  }
+  if (moderator_categorical_flag == T) {
+    rib_data$mf <- factor(
+      rib_data$m,
+      levels = unique_moderator_vals,
+      labels = paste0('Group ',unique_moderator_vals)
+    )
+  }
   
   ## Make Conditional Effects Plot
   cond_plot <- (
-    ggplot(rib_data, aes(x, color = mf, fill = mf))
-    + geom_ribbon(aes(ymin = l, ymax = h), alpha = 0.25)
-    + geom_line(aes(y = fit), linewidth = 1.1)
+    ggplot(rib_data, aes(x, color = mf, fill = mf)) +
+      geom_ribbon(aes(ymin = l, ymax = h), alpha = 0, color = NA) +
+      geom_line(aes(y = fit), linewidth = 1.5)
   )
   
   ## Print Plot with labels
@@ -400,9 +443,58 @@ plot_interaction <- function(model, outcome, focal, moderator) {
     )
     + scale_color_manual(values = c("#439A9D","#583BBF","#D95C14"))
     + scale_fill_manual(values = c("#439A9D","#583BBF","#D95C14"))
-    + ggtitle(
-      'Plot of Conditional Regressions',
-      paste(moderator, "as Moderator")
+    + labs(
+      color = "Moderator",
+      fill = "Moderator",
+      title = 'Plot of Conditional Regressions',
+      subtitle = paste(moderator, "as Moderator")
+    )
+    + theme(
+      axis.text.x = element_text(size = 14),
+      axis.text.y = element_text(size = 14),
+      axis.title.x = element_text(size = 16),
+      axis.title.y = element_text(size = 16),
+      plot.title = element_text(size = 20, face = "bold"),
+      plot.subtitle = element_text(size = 18),
+      legend.title = element_text(size = 16),
+      legend.text  = element_text(size = 14)
+    )
+  )
+  
+  ## Make Conditional Effects Plot
+  cond_plot <- (
+    ggplot(rib_data, aes(x, color = mf, fill = mf)) +
+      geom_ribbon(aes(ymin = l, ymax = h), alpha = .15) +
+      geom_line(aes(y = fit), linewidth = 1.5)
+  )
+  
+  ## Print Plot with labels
+  (
+    cond_plot 
+    + scale_x_continuous(
+      paste(focal, "Scores"),
+      limits = c(x_low, x_high)
+    )
+    + scale_y_continuous(
+      paste(outcome, " Scores")
+    )
+    + scale_color_manual(values = c("#439A9D","#583BBF","#D95C14"))
+    + scale_fill_manual(values = c("#439A9D","#583BBF","#D95C14"))
+    + labs(
+      color = "Moderator",
+      fill = "Moderator",
+      title = 'Plot of Conditional Regressions',
+      subtitle = paste(moderator, "as Moderator")
+    )
+    + theme(
+      axis.text.x = element_text(size = 14),
+      axis.text.y = element_text(size = 14),
+      axis.title.x = element_text(size = 16),
+      axis.title.y = element_text(size = 16),
+      plot.title = element_text(size = 20, face = "bold"),
+      plot.subtitle = element_text(size = 18),
+      legend.title = element_text(size = 16),
+      legend.text  = element_text(size = 14)
     )
   )
   
