@@ -1,3 +1,7 @@
+################################################################################
+# posterior distribution plotting function
+################################################################################
+
 plot_posteriors <- function(model, var) {
   
   if(missing(var) || !is.character(var) || length(var) != 1) {
@@ -87,6 +91,10 @@ plot_posteriors <- function(model, var) {
   
   return(p)
 }
+
+################################################################################
+# function to compute wald-based chibar test of random slopes
+################################################################################
 
 chibar_test <- function(model, raneff = NULL, print = TRUE) {
   
@@ -203,18 +211,22 @@ chibar_test <- function(model, raneff = NULL, print = TRUE) {
   
 }
 
-plot_interaction <- function(model, outcome, focal, moderator) {
+################################################################################
+# simple slope plotting function
+################################################################################
+
+plot_interaction <- function(model, outcome, focal, moderator, bands = T) {
+  
+  warning(paste("Check your inputs carefully, this function is developmental.",
+                "This function currently requires a model with only one interaction effect.",
+                "Focal predictors must be numeric (manifest or latent). Moderators can be numeric (manifest or latent) or nominal.",
+                sep = "\n"))
   
   # Load ggplot2, stopping with an error if it's not installed.
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("Package 'ggplot2' is required but is not installed. Please install it with install.packages('ggplot2').")
   }
   library(ggplot2)
-  
-  model = model4
-  outcome = 'read9'
-  focal = 'read1'
-  moderator = 'lrnprob1'
   
   # Identify estimates to select
   iter_names <- names(model@iterations)
@@ -300,7 +312,7 @@ plot_interaction <- function(model, outcome, focal, moderator) {
   if (focal_categorical_flag) {
     stop("This function currently allows categorical moderators but requires numeric focal predictors.")
   }
-  
+
   # Check whether either variable is centered
   center_line <- grep("(?i)^CENTER:", syntax_lines, perl = TRUE, value = TRUE)
   if (length(center_line) > 0) {
@@ -310,6 +322,10 @@ plot_interaction <- function(model, outcome, focal, moderator) {
   }
   moderator_center_flag <- grepl(moderator, centered_text, fixed = TRUE)
   focal_center_flag     <- grepl(focal, centered_text, fixed = TRUE)
+  
+  if (moderator_categorical_flag & moderator_center_flag) {
+    stop("This function currently requires categorical moderators that are not centered.")
+  }
   
   # Check whether either variable is latent
   latent_line <- grep("(?i)^LATENT:", syntax_lines, perl = TRUE, value = TRUE)
@@ -376,10 +392,10 @@ plot_interaction <- function(model, outcome, focal, moderator) {
   }
   cond_eff_cat <- function(x, i) {
     m <- m_cat[i, ]
+    m_score <- unique_moderator_vals[i]
     cbind(b0 = x[,1] + rowSums(x[,3:(3 + num_moderator_cats - 2)] * matrix(m, nrow = nrow(x), ncol = length(m), byrow = T)), 
-          b1 = x[,2] + rowSums(x[,(3 + num_moderator_cats - 1):ncol(x)] * matrix(m, nrow = nrow(x), ncol = length(m), byrow = T)), m = i )
+          b1 = x[,2] + rowSums(x[,(3 + num_moderator_cats - 1):ncol(x)] * matrix(m, nrow = nrow(x), ncol = length(m), byrow = T)), m = m_score )
   }
-  
   
   # Compute all conditional effects into data.frame
   if (moderator_categorical_flag == F) {
@@ -396,7 +412,7 @@ plot_interaction <- function(model, outcome, focal, moderator) {
       }))
     )
   }
-  
+  freq(simple_data$m)
   # Create factor based on levels of m
   simple_data$mf <- as.factor(simple_data$m)
   
@@ -432,12 +448,23 @@ plot_interaction <- function(model, outcome, focal, moderator) {
   }
   
   ## Make Conditional Effects Plot
-  cond_plot <- (
-    ggplot(rib_data, aes(x, color = mf, fill = mf)) +
-      # geom_ribbon(aes(ymin = l, ymax = h), alpha = 0, color = NA) +
-      geom_ribbon(aes(ymin = l, ymax = h), alpha = .15) +
-      geom_line(aes(y = fit), linewidth = 1.5)
-  )
+  if(bands){
+    cond_plot <- (
+      ggplot(rib_data, aes(x, color = mf, fill = mf)) +
+        # geom_ribbon(aes(ymin = l, ymax = h), alpha = 0, color = NA) +
+        geom_ribbon(aes(ymin = l, ymax = h), alpha = .15) +
+        geom_line(aes(y = fit), linewidth = 1.5)
+    )
+  }
+  if(!bands){
+    cond_plot <- (
+      ggplot(rib_data, aes(x, color = mf, fill = mf)) +
+        geom_ribbon(aes(ymin = l, ymax = h), alpha = 0, color = NA) +
+        # geom_ribbon(aes(ymin = l, ymax = h), alpha = .15) +
+        geom_line(aes(y = fit), linewidth = 1.5)
+    )
+  }
+
   
   ## Print Plot with labels
 (
@@ -449,8 +476,8 @@ plot_interaction <- function(model, outcome, focal, moderator) {
     + scale_y_continuous(
       paste(outcome, " Scores")
     )
-    # + scale_color_manual(values = c("#439A9D","#583BBF","#D95C14"))
-    # + scale_fill_manual(values = c("#439A9D","#583BBF","#D95C14"))
+    + scale_color_manual(values = c("#D95C14","#439A9D","#583BBF","#AE151D","#2E62EA"))
+    + scale_fill_manual(values = c("#D95C14","#439A9D","#583BBF","#AE151D","#2E62EA"))
     + labs(
       color = "Moderator",
       fill = "Moderator",
