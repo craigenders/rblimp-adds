@@ -217,22 +217,32 @@ chibar_test <- function(model, raneff = NULL, print = TRUE) {
 
 plot_interaction <- function(model, outcome, focal, moderator, bands = T) {
   
-  warning(paste("Check your inputs carefully, this function is developmental.",
-                "This function currently requires a model with only one interaction effect.",
-                "Focal predictors must be numeric (manifest or latent). Moderators can be numeric (manifest or latent) or nominal.",
-                sep = "\n"))
-  
   # Load ggplot2, stopping with an error if it's not installed.
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("Package 'ggplot2' is required but is not installed. Please install it with install.packages('ggplot2').")
   }
   library(ggplot2)
-  
+
   # Identify estimates to select
   iter_names <- names(model@iterations)
   selected_info <- data.frame(col_name = character(0),
                               type = character(0),
                               stringsAsFactors = FALSE)
+  
+  # Check whether the interaction term (focal*moderator or moderator*focal) is present in any column names
+  interaction_found <- any(
+    grepl(paste0(focal, "*", moderator), iter_names, ignore.case = TRUE) |
+      grepl(paste0(moderator, "*", focal), iter_names, ignore.case = TRUE)
+  )
+  if (!interaction_found) {
+    stop("Error: The model does not include an interaction term between the focal and moderator variables.")
+  }
+  
+  warning(paste("Check your inputs carefully, this function is developmental.",
+                "This function currently requires a model with only one interaction effect.",
+                "Focal predictors must be numeric (manifest or latent). Moderators can be numeric (manifest or latent) or nominal.",
+                sep = "\n"))
+  
   # Loop over each column name.
   for (col in iter_names) {
     # Only consider columns that start with the outcome string.
