@@ -1,22 +1,16 @@
 plot_posteriors <- function(model, var) {
   
-  # Error handling for the variable input:
   if(missing(var) || !is.character(var) || length(var) != 1) {
     stop("The requested variable does not exist in the rblimp model object.")
   }
   
-  # Load ggplot2, stopping with an error if it's not installed.
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     stop("Package 'ggplot2' is required but is not installed. Please install it with install.packages('ggplot2').")
   }
   library(ggplot2)
   
-  # Extract the iterations data and convert it to a data frame.
   iterations_df <- as.data.frame(model@iterations)
   
-  # Subset columns:
-  # If var equals "All" (case-insensitive), use all columns;
-  # otherwise, select only columns whose names start with var (case-insensitive).
   if(tolower(var) == "all") {
     cols_to_keep <- names(iterations_df)
   } else {
@@ -27,25 +21,20 @@ plot_posteriors <- function(model, var) {
   }
   iterations_df_subset <- iterations_df[, cols_to_keep, drop = FALSE]
   
-  # Clean the column names for printing: replace periods with spaces.
   cleaned_names <- gsub("\\.", " ", colnames(iterations_df_subset))
   colnames(iterations_df_subset) <- cleaned_names
   
-  # Reshape the data using base R's stack() function.
   params_long <- stack(iterations_df_subset)
   names(params_long) <- c("value", "variable")
   
-  # Set the factor levels for 'variable' so that facets appear in the original column order.
   params_long$variable <- factor(params_long$variable, levels = cleaned_names)
   
-  # Assign fill colors based on the parameter name.
   params_long$fill_color <- ifelse(grepl("standardized", params_long$variable, ignore.case = TRUE),
                                    "#439A9D",
                                    ifelse(grepl("r2", params_long$variable, ignore.case = TRUE),
                                           "#583BBF",
                                           "#D95C14"))
   
-  # Compute quantiles (2.5%, 50%, and 97.5%) and density values for each parameter.
   quantiles_list <- lapply(split(params_long$value, params_long$variable), function(x) {
     qs <- quantile(x, probs = c(0.025, 0.5, 0.975))
     d <- density(x)
@@ -56,37 +45,39 @@ plot_posteriors <- function(model, var) {
   })
   quantiles_df <- do.call(rbind, quantiles_list)
   
-  # Ensure the factor levels for quantiles_df$variable match the original order.
   quantiles_df$variable <- factor(gsub("\\.", " ", rownames(quantiles_df)), levels = cleaned_names)
   
-  # Create a label for each parameter using fixed-width formatting.
   quantiles_df$label <- sprintf("Est. = %-7.3f, CI = (%-7.3f, %-7.3f)",
                                 quantiles_df$median, quantiles_df$lower, quantiles_df$upper)
   
-  # Create new facet labels that combine the cleaned parameter name with the annotation.
   new_labels <- setNames(
     paste0(cleaned_names, "\n", quantiles_df$label[match(cleaned_names, as.character(quantiles_df$variable))]),
     cleaned_names
   )
   
-  # Create the base ggplot: density plot with facets for each parameter.
-  p <- ggplot(params_long, aes(x = value)) +
-    geom_density(aes(fill = fill_color), alpha = 0.5) +
-    scale_fill_identity() +
-    facet_wrap(~ variable, scales = "free", labeller = as_labeller(new_labels)) +
-    labs(title = paste("Posterior Distributions for", var),
-         x = "Parameter Estimate", y = "Density") +
-    theme_minimal() +
-    theme(axis.title.y = element_blank(),  # Remove y-axis labels and ticks
-          axis.text.y = element_blank(),
-          axis.ticks.y = element_blank())
+  if(tolower(var) == "all"){plot_title <- paste("Posterior Distributions for all Estimated Parameters")
+  } else {plot_title <- paste("Posterior Distributions for the", var, "Model Parameters")
+  }
   
-  # Add a solid vertical line at the median.
+  p <- ggplot(params_long, aes(x = value)) +
+    geom_density(aes(fill = fill_color, color = fill_color), alpha = 0.25, size = 1.0) +
+    scale_fill_identity() +
+    scale_color_identity() +
+    facet_wrap(~ variable, scales = "free", labeller = as_labeller(new_labels)) +
+    labs(title = plot_title, x = NULL, y = NULL) +
+    theme_minimal() +
+    theme(axis.title.y = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          axis.title.x = element_text(size = 14),
+          axis.text.x = element_text(size = 14),  # Adjust x-axis tick labels here
+          plot.title = element_text(size = 18, face = "bold"),
+          plot.subtitle = element_text(size = 14),
+          strip.text = element_text(size = 14))
+  
   p <- p + geom_vline(data = quantiles_df, aes(xintercept = median),
                       color = "black", linetype = "solid")
   
-  # Add solid vertical lines at the 2.5% and 97.5% quantiles,
-  # with each line extending from y = 0 to the corresponding density value.
   p <- p + geom_segment(data = quantiles_df,
                         aes(x = lower, xend = lower, y = 0, yend = lower_y),
                         color = "black", linetype = "solid") +
