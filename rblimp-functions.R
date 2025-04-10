@@ -202,3 +202,208 @@ chibar_test <- function(model, raneff = NULL, print = TRUE) {
   }
   
 }
+
+plot_interaction <- function(model, outcome, focal, moderator) {
+  
+  # test values
+  # model = model
+  # outcome = 'read9'
+  # focal = 'reading1'
+  # moderator = 'lrnprob1'
+
+  # Load ggplot2, stopping with an error if it's not installed.
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required but is not installed. Please install it with install.packages('ggplot2').")
+  }
+  library(ggplot2)
+  
+  # Identify estimates to select
+  iter_names <- names(model@iterations)
+  selected_info <- data.frame(col_name = character(0),
+                              type = character(0),
+                              stringsAsFactors = FALSE)
+  # Loop over each column name.
+  for (col in iter_names) {
+    # Only consider columns that start with the outcome string.
+    if (!startsWith(col, outcome)) next
+    
+    # Check for intercept columns.
+    if (grepl("intercept", col, ignore.case = TRUE)) {
+      selected_info <- rbind(selected_info, 
+                             data.frame(col_name = col, type = "intercept", 
+                                        stringsAsFactors = FALSE))
+      next
+    }
+    
+    # Check for "regressed on." columns.
+    if (grepl("regressed on\\.", col, perl = TRUE)) {
+      # Split on "regressed on." (using perl = TRUE for regex).
+      parts <- strsplit(col, "regressed on\\.", perl = TRUE)[[1]]
+      if (length(parts) != 2) next
+      
+      # Clean the left part: trim and remove any trailing period.
+      left_part <- trimws(parts[1])
+      left_part <- sub("\\.$", "", left_part)
+      
+      # Only proceed if the left part equals the outcome.
+      if (left_part != outcome) next
+      
+      # Clean the right part.
+      right_part <- trimws(parts[2])
+      
+      # Determine if right part contains the focal and/or moderator.
+      contains_focal <- grepl(focal, right_part, fixed = TRUE)
+      contains_moderator <- grepl(moderator, right_part, fixed = TRUE)
+      
+      if (contains_focal && !contains_moderator) {
+        selected_info <- rbind(selected_info, 
+                               data.frame(col_name = col, type = "focal",
+                                          stringsAsFactors = FALSE))
+      } else if (contains_moderator && !contains_focal) {
+        selected_info <- rbind(selected_info, 
+                               data.frame(col_name = col, type = "moderator",
+                                          stringsAsFactors = FALSE))
+      } else if (contains_focal && contains_moderator) {
+        selected_info <- rbind(selected_info, 
+                               data.frame(col_name = col, type = "both",
+                                          stringsAsFactors = FALSE))
+      }
+    }
+  }
+  
+  # Order the selected columns: intercept, focal, moderator, then both.
+  if(nrow(selected_info) > 0) {
+    type_order <- factor(selected_info$type, levels = c("intercept", "focal", "moderator", "both"))
+    selected_info <- selected_info[order(type_order), ]
+    selected_data <- model@iterations[, selected_info$col_name, drop = FALSE]
+  } else {
+    selected_data <- data.frame()  # Empty data frame if no columns match.
+  }
+  
+  # Extract parameter draws for regression coefficients
+  mat_p <- as.matrix(selected_data)
+  
+  # Check whether either variable is centered
+  syntax_text <- as.character(model@syntax)
+  syntax_lines <- unlist(strsplit(syntax_text, "\n"))
+  center_line <- grep("(?i)^CENTER:", syntax_lines, perl = TRUE, value = TRUE)
+  if (length(center_line) > 0) {
+    centered_text <- sub("(?i)^CENTER:\\s*([^;]+);.*", "\\1", center_line[1], perl = TRUE)
+  } else {
+    centered_text <- ""
+  }
+  moderator_center_flag <- grepl(moderator, centered_text, fixed = TRUE)
+  focal_center_flag     <- grepl(focal, centered_text, fixed = TRUE)
+  
+  # Check whether either variable is latent
+  latent_line <- grep("(?i)^LATENT:", syntax_lines, perl = TRUE, value = TRUE)
+  if (length(latent_line) > 0) {
+    latent_text <- sub("(?i)^CENTER:\\s*([^;]+);.*", "\\1", latent_line[1], perl = TRUE)
+  } else {
+    latent_text <- ""
+  }
+  moderator_latent_flag <- grepl(moderator, latent_text, fixed = TRUE)
+  focal_latent_flag     <- grepl(focal, latent_text, fixed = TRUE)
+  
+  # Alter names of any latent variables
+  if (moderator_latent_flag) {
+    moderator <- paste0(moderator, ".latent")
+  }
+  
+  if (focal_latent_flag) {
+    focal <- paste0(focal, ".latent")
+  }
+  
+  # Compute means and standard deviations
+  mean_focal <- mean(model@average_imp[[focal]], na.rm = TRUE)
+  mean_moderator <- mean(model@average_imp[[moderator]], na.rm = TRUE)
+  sd_focal <- sd(model@average_imp[[focal]], na.rm = TRUE)
+  sd_moderator <- sd(model@average_imp[[moderator]], na.rm = TRUE)
+  
+  # Define variable ranges
+  if(moderator_center_flag){
+    m_low <- -sd_moderator
+    m_mean <- 0
+    m_high <- +sd_moderator
+  } else{
+    m_low <- mean_moderator - sd_moderator
+    m_mean <- mean_moderator
+    m_high <- mean_moderator + sd_moderator
+  }
+  if(focal_center_flag){
+    x_low <- -sd_focal*1.5
+    x_mean <- 0
+    x_high <- +sd_focal*1.5
+  } else{
+    x_low <- mean_focal - sd_focal*1.5
+    x_mean <- mean_focal
+    x_high <- mean_focal + sd_focal*1.5
+  }
+  
+  # Function to Compute conditional Effects
+  cond_eff <- function(x, m) {
+    cbind(b0 = x[,1] + x[,3] * m, b1 = x[,2] + x[,4] * m, m = m )
+  }
+  
+  # Compute all conditional effects into data.frame
+  simple_data <- as.data.frame(rbind(
+    cond_eff(mat_p, m = m_low),
+    cond_eff(mat_p, m = m_mean),
+    cond_eff(mat_p, m =  m_high)
+  ))
+  
+  # Create factor based on levels of m
+  simple_data$mf <- as.factor(simple_data$m)
+  
+  # Create range of predictor scores
+  xvals <- seq(x_low, x_high, by = 0.1)
+  pred_score <- \(d) d[1] + d[2] * xvals
+  
+  # Compute predicted scores
+  pred <- lapply(split(simple_data[,1:2], simple_data$mf), \(x) apply(x, 1, pred_score))
+  
+  # Compute quantiles (2.5%, 50%, 97.5%)
+  quan <- lapply(pred, \(x) apply(x, 1, quantile, p = c(0.025, 0.5, 0.975)))
+  
+  # Combine into data.frame
+  rib_data  <- do.call('rbind', lapply(names(quan), \(x) {
+    data.frame( l = quan[[x]][1,], fit = quan[[x]][2,], h = quan[[x]][3,], x = xvals, m = x)
+  }))
+  
+  # Create factor with labels
+  rib_data$mf <- factor(
+    rib_data$m,
+    levels = c(m_high, m_mean, m_low),
+    labels = c(
+      '+1 SD',
+      'Mean',
+      '-1 SD'
+    )
+  )
+  
+  ## Make Conditional Effects Plot
+  cond_plot <- (
+    ggplot(rib_data, aes(x, color = mf, fill = mf))
+    + geom_ribbon(aes(ymin = l, ymax = h), alpha = 0.25)
+    + geom_line(aes(y = fit), linewidth = 1.1)
+  )
+  
+  ## Print Plot with labels
+  (
+    cond_plot 
+    + scale_x_continuous(
+      paste(focal, "Scores"),
+      limits = c(x_low, x_high)
+    )
+    + scale_y_continuous(
+      paste(outcome, " Scores")
+    )
+    + scale_color_manual(values = c("#439A9D","#583BBF","#D95C14"))
+    + scale_fill_manual(values = c("#439A9D","#583BBF","#D95C14"))
+    + ggtitle(
+      'Plot of Conditional Regressions',
+      paste(moderator, "as Moderator")
+    )
+  )
+  
+}
