@@ -439,7 +439,7 @@ plot_interaction <- function(model, outcome, focal, moderator) {
   )
   
   ## Print Plot with labels
-  (
+  cond_plot1 <- (
     cond_plot1 
     + scale_x_continuous(
       paste(focal, "Scores"),
@@ -476,7 +476,7 @@ plot_interaction <- function(model, outcome, focal, moderator) {
   )
   
   ## Print Plot with labels
-  (
+  cond_plot2 <- (
     cond_plot2 
     + scale_x_continuous(
       paste(focal, "Scores"),
