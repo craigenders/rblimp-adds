@@ -231,8 +231,13 @@ plot_interaction <- function(model, outcome, focal, moderator, bands = T) {
   
   # Check whether the interaction term (focal*moderator or moderator*focal) is present in any column names
   interaction_found <- any(
-    grepl(paste0(focal, "\\*", moderator), iter_names, ignore.case = TRUE) |
-      grepl(paste0(moderator, "\\*", focal), iter_names, ignore.case = TRUE)
+    grepl(
+      paste0("(", focal, "(\\.\\d+)?\\*", moderator, "(\\.\\d+)?|",
+             moderator, "(\\.\\d+)?\\*", focal, "(\\.\\d+)?", ")"
+      ),
+      iter_names,
+      ignore.case = TRUE
+    )
   )
   if (!interaction_found) {
     stop("Error: The model does not include an interaction term between the focal and moderator variables.")
