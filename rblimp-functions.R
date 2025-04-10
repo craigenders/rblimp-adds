@@ -431,53 +431,53 @@ plot_interaction <- function(model, outcome, focal, moderator) {
     )
   }
   
-  ## Make Conditional Effects Plot
-  cond_plot1 <- (
-    ggplot(rib_data, aes(x, color = mf, fill = mf)) +
-      geom_ribbon(aes(ymin = l, ymax = h), alpha = 0, color = NA) +
-      geom_line(aes(y = fit), linewidth = 1.5)
-  )
+#   ## Make Conditional Effects Plot
+#   cond_plot1 <- (
+#     ggplot(rib_data, aes(x, color = mf, fill = mf)) +
+#       geom_ribbon(aes(ymin = l, ymax = h), alpha = 0, color = NA) +
+#       geom_line(aes(y = fit), linewidth = 1.5)
+#   )
+#   
+#   ## Print Plot with labels
+# (
+#     cond_plot1 
+#     + scale_x_continuous(
+#       paste(focal, "Scores"),
+#       limits = c(x_low, x_high)
+#     )
+#     + scale_y_continuous(
+#       paste(outcome, " Scores")
+#     )
+#     + scale_color_manual(values = c("#439A9D","#583BBF","#D95C14"))
+#     + scale_fill_manual(values = c("#439A9D","#583BBF","#D95C14"))
+#     + labs(
+#       color = "Moderator",
+#       fill = "Moderator",
+#       title = 'Plot of Conditional Regressions',
+#       subtitle = paste(moderator, "as Moderator")
+#     )
+#     + theme(
+#       axis.text.x = element_text(size = 14),
+#       axis.text.y = element_text(size = 14),
+#       axis.title.x = element_text(size = 16),
+#       axis.title.y = element_text(size = 16),
+#       plot.title = element_text(size = 20, face = "bold"),
+#       plot.subtitle = element_text(size = 18),
+#       legend.title = element_text(size = 16),
+#       legend.text  = element_text(size = 14)
+#     )
+#   )
   
-  ## Print Plot with labels
-  cond_plot1 <- (
-    cond_plot1 
-    + scale_x_continuous(
-      paste(focal, "Scores"),
-      limits = c(x_low, x_high)
-    )
-    + scale_y_continuous(
-      paste(outcome, " Scores")
-    )
-    + scale_color_manual(values = c("#439A9D","#583BBF","#D95C14"))
-    + scale_fill_manual(values = c("#439A9D","#583BBF","#D95C14"))
-    + labs(
-      color = "Moderator",
-      fill = "Moderator",
-      title = 'Plot of Conditional Regressions',
-      subtitle = paste(moderator, "as Moderator")
-    )
-    + theme(
-      axis.text.x = element_text(size = 14),
-      axis.text.y = element_text(size = 14),
-      axis.title.x = element_text(size = 16),
-      axis.title.y = element_text(size = 16),
-      plot.title = element_text(size = 20, face = "bold"),
-      plot.subtitle = element_text(size = 18),
-      legend.title = element_text(size = 16),
-      legend.text  = element_text(size = 14)
-    )
-  )
-  
   ## Make Conditional Effects Plot
-  cond_plot2 <- (
+  cond_plot <- (
     ggplot(rib_data, aes(x, color = mf, fill = mf)) +
       geom_ribbon(aes(ymin = l, ymax = h), alpha = .15) +
       geom_line(aes(y = fit), linewidth = 1.5)
   )
   
   ## Print Plot with labels
-  cond_plot2 <- (
-    cond_plot2 
+(
+    cond_plot
     + scale_x_continuous(
       paste(focal, "Scores"),
       limits = c(x_low, x_high)
@@ -505,7 +505,7 @@ plot_interaction <- function(model, outcome, focal, moderator) {
     )
   )
   
-  print(cond_plot1)
-  print(cond_plot2)
+  # print(cond_plot1)
+  # print(cond_plot2)
   
 }
