@@ -505,4 +505,7 @@ plot_interaction <- function(model, outcome, focal, moderator) {
     )
   )
   
+  print(cond_plot1)
+  print(cond_plot2)
+  
 }
