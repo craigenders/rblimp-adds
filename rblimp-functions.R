@@ -432,7 +432,7 @@ plot_interaction <- function(model, outcome, focal, moderator) {
   }
   
   ## Make Conditional Effects Plot
-  cond_plot <- (
+  cond_plot1 <- (
     ggplot(rib_data, aes(x, color = mf, fill = mf)) +
       geom_ribbon(aes(ymin = l, ymax = h), alpha = 0, color = NA) +
       geom_line(aes(y = fit), linewidth = 1.5)
@@ -440,7 +440,7 @@ plot_interaction <- function(model, outcome, focal, moderator) {
   
   ## Print Plot with labels
   (
-    cond_plot 
+    cond_plot1 
     + scale_x_continuous(
       paste(focal, "Scores"),
       limits = c(x_low, x_high)
@@ -469,7 +469,7 @@ plot_interaction <- function(model, outcome, focal, moderator) {
   )
   
   ## Make Conditional Effects Plot
-  cond_plot <- (
+  cond_plot2 <- (
     ggplot(rib_data, aes(x, color = mf, fill = mf)) +
       geom_ribbon(aes(ymin = l, ymax = h), alpha = .15) +
       geom_line(aes(y = fit), linewidth = 1.5)
@@ -477,7 +477,7 @@ plot_interaction <- function(model, outcome, focal, moderator) {
   
   ## Print Plot with labels
   (
-    cond_plot 
+    cond_plot2 
     + scale_x_continuous(
       paste(focal, "Scores"),
       limits = c(x_low, x_high)
