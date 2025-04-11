@@ -1,5 +1,92 @@
 ################################################################################
-# posterior distribution plotting function
+# posterior distribution plotting function (one parameter)
+################################################################################
+
+plot_one_posterior <- function(model, parname) {
+  
+  # model = med_model1
+  # parname = 'indirect_ACE'
+  
+  # Check that parname is provided as a single character string
+  if(missing(parname) || !is.character(parname) || length(parname) != 1) {
+    stop("The requested parameter name must be a single character string.")
+  }
+  
+  # Check that the model object is provided
+  if(missing(model) || is.null(model)) {
+    stop("Error: Model input object not found. Please supply a valid model object.")
+  }
+  
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' is required but is not installed. Please install it with install.packages('ggplot2').")
+  }
+  library(ggplot2)
+  
+  # Convert the iterations slot to a data frame
+  iterations_df <- as.data.frame(model@iterations)
+  
+  # Search for columns with names that contain parname (ignoring case)
+  matching_cols <- grep(parname, names(iterations_df), ignore.case = TRUE, value = TRUE)
+  
+  if (length(matching_cols) == 0) {
+    stop("The requested parameter was not found in the model object.")
+  }
+  if (length(matching_cols) > 1) {
+    warning("More than one column matches the parameter name. The first match will be used.")
+  }
+  
+  # Use the first matching column
+  selected_col <- matching_cols[1]
+  
+  # Extract the data vector
+  data_vec <- iterations_df[[selected_col]]
+  
+  # Define fill color depending on parname content (same logic as your original)
+  fill_color <- "#D95C14"
+  
+  # Compute quantiles and the corresponding y-values from the density estimate
+  qs <- quantile(data_vec, probs = c(0.025, 0.5, 0.975), na.rm = TRUE)
+  d_obj <- density(data_vec, na.rm = TRUE)
+  lower_y <- as.numeric(approx(x = d_obj$x, y = d_obj$y, xout = qs[1], rule = 2)$y)
+  upper_y <- as.numeric(approx(x = d_obj$x, y = d_obj$y, xout = qs[3], rule = 2)$y)
+  
+  # Create a data frame for the density curve
+  density_df <- data.frame(value = d_obj$x, density = d_obj$y)
+  
+  # Create a label for quantiles
+  label_text <- sprintf("Est. = %-7.3f, CI = (%-7.3f, %-7.3f)", qs[2], qs[1], qs[3])
+  
+  # Set plot title
+  plot_title <- paste("Posterior Distribution for", parname, "\n", label_text)
+  
+  # Build the density plot with ggplot2
+  p <- ggplot(density_df, aes(x = value, y = density)) +
+    # Add a ribbon to shade under the density curve
+    geom_ribbon(aes(ymin = 0, ymax = density), fill = fill_color, alpha = 0.15) +
+    # Then plot the density line on top
+    geom_line(color = fill_color, size = 1.0) +
+    labs(title = plot_title, x = "Parameter Estimate", y = "Density") +
+    theme_minimal() +
+    theme(axis.title.x = element_text(size = 14),
+          axis.text.x  = element_text(size = 14),
+          plot.title   = element_text(size = 18, face = "bold"),
+          plot.subtitle= element_text(size = 14))
+  
+  # Add vertical line at the median
+  p <- p + geom_vline(xintercept = qs[2], color = "black", linetype = "solid")
+  
+  # Add segments for the lower and upper quantile density values
+  ( p + 
+      geom_segment(x = qs[1], xend = qs[1], y = 0, yend = lower_y,
+                   color = "black", linetype = "solid") +
+      geom_segment(x = qs[3], xend = qs[3], y = 0, yend = upper_y,
+                   color = "black", linetype = "solid")
+  )
+  
+}
+
+################################################################################
+# posterior distribution plotting function (multiple parameters)
 ################################################################################
 
 plot_posteriors <- function(model, var) {
