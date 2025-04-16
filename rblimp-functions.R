@@ -89,10 +89,10 @@ plot_one_posterior <- function(model, parname) {
 # posterior distribution plotting function (multiple parameters)
 ################################################################################
 
-plot_posteriors <- function(model, var) {
+plot_posteriors <- function(model, outcome) {
   
-  if(missing(var) || !is.character(var) || length(var) != 1) {
-    stop("The requested variable does not exist in the rblimp model object.")
+  if(missing(outcome) || !is.character(outcome) || length(outcome) != 1) {
+    stop("The requested outcome does not exist in the rblimp model object.")
   }
   
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
@@ -102,17 +102,19 @@ plot_posteriors <- function(model, var) {
   
   iterations_df <- as.data.frame(model@iterations)
   
-  if(tolower(var) == "all") {
+  if(tolower(outcome) == "all") {
     cols_to_keep <- names(iterations_df)
   } else {
-    cols_to_keep <- grep(paste0("^", var), names(iterations_df), ignore.case = TRUE, value = TRUE)
+    cols_to_keep <- grep(paste0("^", outcome), names(iterations_df), ignore.case = TRUE, value = TRUE)
     if (length(cols_to_keep) == 0) {
-      stop("The requested variable does not exist in the rblimp model object.")
+      stop("The requested outcome does not exist in the rblimp model object.")
     }
   }
   iterations_df_subset <- iterations_df[, cols_to_keep, drop = FALSE]
   
+  # Replace periods with spaces and then collapse multiple spaces into one.
   cleaned_names <- gsub("\\.", " ", colnames(iterations_df_subset))
+  cleaned_names <- gsub("\\s+", " ", cleaned_names)
   colnames(iterations_df_subset) <- cleaned_names
   
   params_long <- stack(iterations_df_subset)
@@ -120,11 +122,15 @@ plot_posteriors <- function(model, var) {
   
   params_long$variable <- factor(params_long$variable, levels = cleaned_names)
   
-  params_long$fill_color <- ifelse(grepl("standardized", params_long$variable, ignore.case = TRUE),
-                                   "#439A9D",
-                                   ifelse(grepl("r2", params_long$variable, ignore.case = TRUE),
-                                          "#583BBF",
-                                          "#D95C14"))
+  # Create a group variable based on variable names.
+  params_long$group <- ifelse(grepl("standardized", params_long$variable, ignore.case = TRUE),
+                              "Standardized",
+                              ifelse(grepl("r2", params_long$variable, ignore.case = TRUE),
+                                     "R2",
+                                     ifelse(grepl("variance|covariance|correlation", params_long$variable, ignore.case = TRUE),
+                                            "VarCovCor",
+                                            "Other")))
+  params_long$group <- factor(params_long$group, levels = c("Standardized", "R2", "VarCovCor", "Other"))
   
   quantiles_list <- lapply(split(params_long$value, params_long$variable), function(x) {
     qs <- quantile(x, probs = c(0.025, 0.5, 0.975))
@@ -137,8 +143,10 @@ plot_posteriors <- function(model, var) {
   quantiles_df <- do.call(rbind, quantiles_list)
   
   quantiles_df$variable <- factor(gsub("\\.", " ", rownames(quantiles_df)), levels = cleaned_names)
+  levels(quantiles_df$variable) <- gsub("\\s+", " ", levels(quantiles_df$variable))
   
-  quantiles_df$label <- sprintf("Est. = %-7.3f, CI = (%-7.3f, %-7.3f)",
+  # Revised label formatting using %.3f to avoid extra blank spaces.
+  quantiles_df$label <- sprintf("Est. = %.3f, CI = (%.3f, %.3f)",
                                 quantiles_df$median, quantiles_df$lower, quantiles_df$upper)
   
   new_labels <- setNames(
@@ -146,14 +154,15 @@ plot_posteriors <- function(model, var) {
     cleaned_names
   )
   
-  if(tolower(var) == "all"){plot_title <- paste("Posterior Distributions for all Estimated Parameters")
-  } else {plot_title <- paste("Posterior Distributions for the", var, "Model Parameters")
+  if(tolower(outcome) == "all") {
+    plot_title <- "Posterior Distributions for all Estimated Parameters"
+  } else {
+    plot_title <- paste("Posterior Distributions for the", outcome, "Model Parameters")
   }
   
+  # Set the global mapping to x only.
   p <- ggplot(params_long, aes(x = value)) +
-    geom_density(aes(fill = fill_color, color = fill_color), alpha = 0.25, size = 1.0) +
-    scale_fill_identity() +
-    scale_color_identity() +
+    geom_density(aes(fill = group, color = group), alpha = 0.25, size = 1.0) +
     facet_wrap(~ variable, scales = "free", labeller = as_labeller(new_labels)) +
     labs(title = plot_title, x = NULL, y = NULL) +
     theme_minimal() +
@@ -161,19 +170,21 @@ plot_posteriors <- function(model, var) {
           axis.text.y = element_blank(),
           axis.ticks.y = element_blank(),
           axis.title.x = element_text(size = 14),
-          axis.text.x = element_text(size = 14),  # Adjust x-axis tick labels here
+          axis.text.x = element_text(size = 14),
           plot.title = element_text(size = 18, face = "bold"),
           plot.subtitle = element_text(size = 14),
-          strip.text = element_text(size = 14))
+          strip.text = element_text(size = 14),
+          legend.position = "none") +
+    scale_fill_hue() +
+    scale_color_hue()
   
-  p <- p + geom_vline(data = quantiles_df, aes(xintercept = median),
+  # The quantiles layers now use their own mapping.
+  p <- p + geom_vline(data = quantiles_df, mapping = aes(xintercept = median),
                       color = "black", linetype = "solid")
   
-  p <- p + geom_segment(data = quantiles_df,
-                        aes(x = lower, xend = lower, y = 0, yend = lower_y),
+  p <- p + geom_segment(data = quantiles_df, mapping = aes(x = lower, xend = lower, y = 0, yend = lower_y),
                         color = "black", linetype = "solid") +
-    geom_segment(data = quantiles_df,
-                 aes(x = upper, xend = upper, y = 0, yend = upper_y),
+    geom_segment(data = quantiles_df, mapping = aes(x = upper, xend = upper, y = 0, yend = upper_y),
                  color = "black", linetype = "solid")
   
   return(p)
