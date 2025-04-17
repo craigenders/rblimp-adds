@@ -341,8 +341,7 @@ plot_interaction <- function(model, outcome, focal, moderator, bands = T) {
     stop("Error: The model does not include an interaction term between the focal and moderator variables.")
   }
   
-  warning(paste("Check your inputs carefully, this function is developmental.",
-                "This function currently requires a model with only one interaction effect.",
+  warning(paste("This function currently requires a model with only one interaction effect.",
                 "Focal predictors must be numeric (manifest or latent). Moderators can be numeric (manifest or latent) or nominal.",
                 sep = "\n"))
   
