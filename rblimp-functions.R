@@ -525,7 +525,7 @@ plot_interaction <- function(model, outcome, focal, moderator, bands = T) {
       }))
     )
   }
-  freq(simple_data$m)
+  # freq(simple_data$m)
   # Create factor based on levels of m
   simple_data$mf <- as.factor(simple_data$m)
   
@@ -589,8 +589,8 @@ plot_interaction <- function(model, outcome, focal, moderator, bands = T) {
     + scale_y_continuous(
       paste(outcome, " Scores")
     )
-    + scale_color_manual(values = c("#D95C14","#439A9D","#583BBF","#AE151D","#2E62EA"))
-    + scale_fill_manual(values = c("#D95C14","#439A9D","#583BBF","#AE151D","#2E62EA"))
+    # + scale_color_manual(values = c("#D95C14","#439A9D","#583BBF","#AE151D","#2E62EA"))
+    # + scale_fill_manual(values = c("#D95C14","#439A9D","#583BBF","#AE151D","#2E62EA"))
     + labs(
       color = "Moderator",
       fill = "Moderator",
